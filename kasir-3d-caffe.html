@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>3D Caffe — Sistem Kasir</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sistem kasir (POS) untuk 3D Caffe Ende - Coffee, Resto & Meeting Place">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231A1A1A'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%232E7D32' stroke-width='2.5'/%3E%3Ctext x='32' y='22' text-anchor='middle' font-family='sans-serif' font-size='11' font-weight='700' fill='%232E7D32'%3E3D%3C/text%3E%3Cpath d='M20 30 H40 V40 a6 6 0 0 1-6 6 H26 a6 6 0 0 1-6-6 Z' fill='%23F5F5F5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header-inner">
+    <div class="brand">
+      <div class="brand-badge">3D</div>
+      <div class="brand-text">
+        <div class="name">3D Caffe</div>
+        <div class="tag" data-i18n="brandTagline">Coffee • Resto • Meeting Place</div>
+      </div>
+    </div>
+    <nav class="nav-tabs">
+      <button class="nav-tab active" id="tab-pos" onclick="setView('pos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
+        <span class="nav-tab-label" data-i18n="navPos">Kasir</span>
+      </button>
+      <button class="nav-tab" id="tab-history" onclick="setView('history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+        <span class="nav-tab-label" data-i18n="navHistory">Riwayat</span>
+      </button>
+    </nav>
+    <div class="header-right">
+      <span class="cart-count-badge" id="cart-count-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
+        <span id="cart-count-num">0</span>
+      </span>
+      <button class="icon-btn" onclick="toggleLang()" aria-label="Toggle language">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+      </button>
+      <button class="icon-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" id="theme-btn">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="app-main">
+  <div id="view-pos" class="pos-layout">
+    <div class="menu-area">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input class="search-input" id="search" type="text" placeholder="Cari menu…" data-i18n-ph="searchPlaceholder" oninput="renderMenu()">
+      </div>
+      <div class="cat-tabs" id="cat-tabs"></div>
+      <div class="menu-grid" id="menu-grid"></div>
+    </div>
+    <aside class="cart-panel cart-panel-desktop" id="cart-panel-desktop"></aside>
+    <div class="mobile-cart-bar" id="mobile-cart-bar">
+      <div class="info">
+        <div class="qty"><span id="mobile-cart-qty">0</span> <span data-i18n="items">item</span></div>
+        <div class="total" id="mobile-cart-total">Rp 0</div>
+      </div>
+      <button class="open-btn" onclick="openDrawer()" data-i18n="cartTitle">Pesanan</button>
+    </div>
+  </div>
+
+  <div id="view-history" class="history-view hidden">
+    <div class="history-head">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button class="btn-outline" onclick="setView('pos')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+          <span data-i18n="backToPos">Kembali ke Kasir</span>
+        </button>
+        <h1 data-i18n="historyTitle">Riwayat Transaksi</h1>
+      </div>
+      <button class="btn-outline" id="filter-today-btn" onclick="toggleFilterToday()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span data-i18n="filterToday">Hari Ini</span>
+      </button>
+    </div>
+    <div class="summary-grid" id="summary-grid"></div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  <div>3D Caffe — Ende Coffe &amp; Resto · <span data-i18n="poweredBy">Sistem Kasir 3D Caffe</span></div>
+  <div style="margin-top:2px;"><a href="https://wa.me/6281239418017" target="_blank" rel="noopener">0812-7947-5598 · 0812-3941-8017</a></div>
+</footer>
+
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+  </button>
+  <div class="cart-panel" id="cart-panel-mobile"></div>
+</div>
+
+<div class="modal-overlay" id="receipt-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+      <span data-i18n="receiptTitle">Struk Pembayaran</span>
+    </div>
+    <div id="receipt-printable" class="receipt"></div>
+    <div class="modal-footer">
+      <button class="btn-print" onclick="printReceipt()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+        <span data-i18n="print">Cetak Struk</span>
+      </button>
+      <button class="btn-new" onclick="newOrder()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+        <span data-i18n="newOrder">Pesanan Baru</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+"use strict";
+
+/* ============ MENU DATA ============ */
+var MENU = [
+  {id:"esp",name:"Espresso",nameEn:"Espresso",cat:"coffee",price:15000,emoji:"☕",desc:"Single shot, kuat & aromatic",descEn:"Single shot, strong & aromatic"},
+  {id:"americano",name:"Americano",nameEn:"Americano",cat:"coffee",price:18000,emoji:"☕",desc:"Espresso + air panas",descEn:"Espresso + hot water"},
+  {id:"cappuccino",name:"Cappuccino",nameEn:"Cappuccino",cat:"coffee",price:22000,emoji:"☕",desc:"Espresso, steamed milk, foam",descEn:"Espresso, steamed milk, foam"},
+  {id:"latte",name:"Caffè Latte",nameEn:"Caffè Latte",cat:"coffee",price:25000,emoji:"🥛",desc:"Espresso + susu segar, lembut",descEn:"Espresso + fresh milk, smooth"},
+  {id:"kopisusu",name:"Kopi Susu 3D",nameEn:"3D Milk Coffee",cat:"coffee",price:20000,emoji:"☕",desc:"Signature kopi susu gula aren",descEn:"Signature palm-sugar milk coffee"},
+  {id:"kopitubruk",name:"Kopi Hitam Tubruk",nameEn:"Black Tubruk Coffee",cat:"coffee",price:12000,emoji:"☕",desc:"Kopi tradisional Ende",descEn:"Ende traditional brew"},
+  {id:"coklat",name:"Cokelat Panas",nameEn:"Hot Chocolate",cat:"non-coffee",price:20000,emoji:"🍫",desc:"Cokelat Belgium + susu",descEn:"Belgian chocolate + milk"},
+  {id:"matcha",name:"Matcha Latte",nameEn:"Matcha Latte",cat:"non-coffee",price:25000,emoji:"🍵",desc:"Matcha premium + susu",descEn:"Premium matcha + milk"},
+  {id:"esteh",name:"Es Teh Manis",nameEn:"Iced Sweet Tea",cat:"non-coffee",price:8000,emoji:"🧊",desc:"Teh manis dingin segar",descEn:"Refreshing iced sweet tea"},
+  {id:"tehtelur",name:"Teh Telur Ende",nameEn:"Ende Egg Tea",cat:"non-coffee",price:15000,emoji:"🥚",desc:"Khas Flores — teh + kuning telur",descEn:"Flores signature — tea + egg yolk"},
+  {id:"esjeruk",name:"Es Jeruk Peras",nameEn:"Fresh Orange Juice",cat:"non-coffee",price:14000,emoji:"🍊",desc:"Jeruk peras segar",descEn:"Freshly squeezed orange"},
+  {id:"cendol",name:"Es Cendol",nameEn:"Iced Cendol",cat:"non-coffee",price:13000,emoji:"🍧",desc:"Cendol + gula aren + santan",descEn:"Cendol + palm sugar + coconut milk"},
+  {id:"nasgor",name:"Nasi Goreng Spesial",nameEn:"Special Fried Rice",cat:"food",price:25000,emoji:"🍳",desc:"Nasi goreng + telur + ayam",descEn:"Fried rice + egg + chicken"},
+  {id:"miegor",name:"Mie Goreng Jawa",nameEn:"Javanese Fried Noodles",cat:"food",price:22000,emoji:"🍜",desc:"Mie goreng ala rumahan",descEn:"Home-style fried noodles"},
+  {id:"geprek",name:"Ayam Geprek Sambal Matah",nameEn:"Geprek Chicken with Matah Sambal",cat:"food",price:28000,emoji:"🍗",desc:"Ayam crispy + sambal matah Ende",descEn:"Crispy chicken + Ende matah sambal"},
+  {id:"nasiayam",name:"Nasi Ayam Flores",nameEn:"Flores Chicken Rice",cat:"food",price:30000,emoji:"🍚",desc:"Nasi + ayam bakar + sayur",descEn:"Rice + grilled chicken + veg"},
+  {id:"nasikotak",name:"Nasi Kotak",nameEn:"Boxed Rice",cat:"food",price:20000,emoji:"🍱",desc:"Nasi + lauk, untuk dibungkus",descEn:"Rice + side dish, takeaway"},
+  {id:"mieayam",name:"Mie Ayam Bakso",nameEn:"Chicken Noodle with Meatballs",cat:"food",price:23000,emoji:"🍲",desc:"Mie ayam + bakso + pangsit",descEn:"Chicken noodle + meatball + wonton"},
+  {id:"pisang",name:"Pisang Goreng Keju",nameEn:"Fried Banana with Cheese",cat:"snack",price:15000,emoji:"🍌",desc:"Pisang crispy + cokelat + keju",descEn:"Crispy banana + choc + cheese"},
+  {id:"roti",name:"Roti Bakar Cokelat Keju",nameEn:"Toasted Bread Choco-Cheese",cat:"snack",price:14000,emoji:"🍞",desc:"Roti panggang + cokelat + keju",descEn:"Toast + chocolate + cheese"},
+  {id:"kentang",name:"Kentang Goreng",nameEn:"French Fries",cat:"snack",price:13000,emoji:"🍟",desc:"Kentang crispy + mayo",descEn:"Crispy fries + mayo"},
+  {id:"croissant",name:"Butter Croissant",nameEn:"Butter Croissant",cat:"snack",price:18000,emoji:"🥐",desc:"Croissant mentega, lapis-lapis",descEn:"Buttery, flaky croissant"},
+  {id:"donat",name:"Donat Cokelat",nameEn:"Chocolate Donut",cat:"snack",price:10000,emoji:"🍩",desc:"Donat lembut + topping cokelat",descEn:"Soft donut + chocolate topping"},
+  {id:"pukis",name:"Pukis Cokelat",nameEn:"Chocolate Pukis",cat:"snack",price:9000,emoji:"🧁",desc:"Kue pukis tradisional + cokelat",descEn:"Traditional pukis + chocolate"},
+  {id:"bukber",name:"Paket BUKBER",nameEn:"Iftar Package",cat:"package",price:35000,emoji:"🌙",desc:"Nasi+ayam+kol+es buah+kurma (min 10)",descEn:"Rice+chicken+slaw+fruit ice+dates (min 10)"},
+  {id:"valentine",name:"Paket Valentine",nameEn:"Valentine Package",cat:"package",price:80000,emoji:"💝",desc:"2 Latte + 2 Croissant + cokelat + bunga",descEn:"2 Latte + 2 Croissant + chocolate + flower"},
+  {id:"meeting",name:"Paket Meeting",nameEn:"Meeting Package",cat:"package",price:150000,emoji:"💼",desc:"5 kopi + 5 snack + air mineral + ruang AC",descEn:"5 coffees + 5 snacks + water + AC room"},
+  {id:"sarapan",name:"Paket Sarapan Hemat",nameEn:"Budget Breakfast Package",cat:"package",price:28000,emoji:"🌅",desc:"Kopi susu + roti bakar + telur",descEn:"Milk coffee + toast + egg"}
+];
+
+var CATS = [
+  {key:"all",emoji:"🍽️"},{key:"coffee",emoji:"☕"},{key:"non-coffee",emoji:"🥤"},
+  {key:"food",emoji:"🍛"},{key:"snack",emoji:"🥐"},{key:"package",emoji:"🎁"}
+];
+
+/* ============ I18N ============ */
+var I18N = {
+  brandTagline:{id:"Coffee • Resto • Meeting Place",en:"Coffee • Resto • Meeting Place"},
+  navPos:{id:"Kasir",en:"Cashier"},
+  navHistory:{id:"Riwayat",en:"History"},
+  searchPlaceholder:{id:"Cari menu…",en:"Search menu…"},
+  allCategories:{id:"Semua",en:"All"},
+  catCoffee:{id:"Coffee",en:"Coffee"},
+  catNonCoffee:{id:"Non-Coffee",en:"Non-Coffee"},
+  catFood:{id:"Makanan Berat",en:"Main Course"},
+  catSnack:{id:"Snack & Pastry",en:"Snack & Pastry"},
+  catPackage:{id:"Paket Spesial",en:"Special Package"},
+  addItem:{id:"Tambah",en:"Add"},
+  cartTitle:{id:"Pesanan",en:"Order"},
+  cartEmpty:{id:"Belum ada pesanan. Klik menu di kiri untuk menambahkan.",en:"No items yet. Click a menu item to add it."},
+  orderType:{id:"Tipe Pesanan",en:"Order Type"},
+  dineIn:{id:"Dine-in",en:"Dine-in"},
+  takeaway:{id:"Takeaway",en:"Takeaway"},
+  tableNumber:{id:"Nomor Meja",en:"Table Number"},
+  tablePlaceholder:{id:"Mis. 5",en:"e.g. 5"},
+  customerName:{id:"Nama Pelanggan (opsional)",en:"Customer name (optional)"},
+  customerPlaceholder:{id:"Mis. Bapak Budi",en:"e.g. Mr. Budi"},
+  subtotal:{id:"Subtotal",en:"Subtotal"},
+  total:{id:"Total",en:"Total"},
+  paymentMethod:{id:"Metode Pembayaran",en:"Payment Method"},
+  cash:{id:"Tunai",en:"Cash"},
+  qris:{id:"QRIS",en:"QRIS"},
+  amountPaid:{id:"Uang Dibayar",en:"Amount Paid"},
+  amountPaidPlaceholder:{id:"0",en:"0"},
+  change:{id:"Kembalian",en:"Change"},
+  quickCash:{id:"Uang Pas",en:"Exact"},
+  checkout:{id:"Bayar & Proses",en:"Pay & Process"},
+  clearCart:{id:"Kosongkan",en:"Clear"},
+  qrisInstruction:{id:"Scan QR di bawah dengan e-wallet / m-banking apa pun.",en:"Scan the QR below with any e-wallet / m-banking app."},
+  qrisWaiting:{id:"Tekan tombol setelah pelanggan selesai scan.",en:"Press the button after the customer finishes scanning."},
+  qrisPaid:{id:"Sudah Bayar",en:"Paid"},
+  insufficient:{id:"Uang dibayar kurang dari total.",en:"Amount paid is less than total."},
+  emptyCartWarn:{id:"Keranjang masih kosong.",en:"Cart is empty."},
+  needTable:{id:"Masukkan nomor meja untuk dine-in.",en:"Enter a table number for dine-in."},
+  items:{id:"item",en:"item"},
+  itemsPlural:{id:"item",en:"items"},
+  receiptTitle:{id:"Struk Pembayaran",en:"Payment Receipt"},
+  receiptNo:{id:"No. Transaksi",en:"Trans. No"},
+  date:{id:"Tanggal",en:"Date"},
+  cashier:{id:"Kasir",en:"Cashier"},
+  thankYou:{id:"Terima kasih atas kunjungan Anda 🙏",en:"Thank you for visiting 🙏"},
+  poweredBy:{id:"Sistem Kasir 3D Caffe",en:"3D Caffe POS System"},
+  print:{id:"Cetak Struk",en:"Print Receipt"},
+  newOrder:{id:"Pesanan Baru",en:"New Order"},
+  paid:{id:"Dibayar",en:"Paid"},
+  historyTitle:{id:"Riwayat Transaksi",en:"Transaction History"},
+  historyEmpty:{id:"Belum ada transaksi tersimpan.",en:"No transactions yet."},
+  todaySales:{id:"Penjualan Hari Ini",en:"Today's Sales"},
+  totalRevenue:{id:"Total Pendapatan",en:"Total Revenue"},
+  transactionCount:{id:"Jumlah Transaksi",en:"Transactions"},
+  viewReceipt:{id:"Lihat Struk",en:"View Receipt"},
+  backToPos:{id:"Kembali ke Kasir",en:"Back to Cashier"},
+  allTransactions:{id:"Semua Transaksi",en:"All Transactions"},
+  filterToday:{id:"Hari Ini",en:"Today"},
+  perItem:{id:"/ item",en:"/ item"}
+};
+
+function tt(key){return I18N[key][state.lang];}
+function catLabel(k){
+  if(k==="all")return tt("allCategories");
+  if(k==="coffee")return tt("catCoffee");
+  if(k==="non-coffee")return tt("catNonCoffee");
+  if(k==="food")return tt("catFood");
+  if(k==="snack")return tt("catSnack");
+  if(k==="package")return tt("catPackage");
+}
+
+/* ============ STATE ============ */
+var state = {
+  lang:"id", theme:"light", view:"pos",
+  cart:[], orderType:"dine-in", tableNo:"", customerName:"",
+  payment:"cash", amountPaid:0, qrisPaid:false,
+  transactions:[], filterToday:false, selectedCat:"all", selectedTrx:null,
+  cashier:"Kasir 1"
+};
+
+/* ============ PERSISTENCE ============ */
+var PKEY = "3d-caffe-pos-v1";
+function persist(){
+  try{
+    localStorage.setItem(PKEY, JSON.stringify({
+      lang:state.lang, theme:state.theme,
+      transactions:state.transactions, cashier:state.cashier
+    }));
+  }catch(e){}
+}
+function loadPersisted(){
+  try{
+    var data = JSON.parse(localStorage.getItem(PKEY));
+    if(data){
+      if(data.lang) state.lang = data.lang;
+      if(data.theme) state.theme = data.theme;
+      if(data.transactions) state.transactions = data.transactions;
+      if(data.cashier) state.cashier = data.cashier;
+    }
+  }catch(e){}
+}
+
+/* ============ HELPERS ============ */
+function formatIDR(n){
+  if(!Number.isFinite(n)) n = 0;
+  return "Rp " + Math.round(n).toLocaleString("id-ID");
+}
+function formatMoneyInput(s){
+  var d = (s||"").toString().replace(/[^0-9]/g,"");
+  return d ? parseInt(d,10) : 0;
+}
+function pad2(n){return n<10?"0"+n:""+n;}
+function generateTrxNo(d){
+  d = d || new Date();
+  return "TRX-" + d.getFullYear() + pad2(d.getMonth()+1) + pad2(d.getDate()) + "-" +
+    pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds());
+}
+function formatDateTime(ts){
+  var d = new Date(ts);
+  return d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"}) + ", " +
+         d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
+}
+function ymd(d){
+  d = d ? new Date(d) : new Date();
+  return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+}
+function subtotal(){return state.cart.reduce(function(s,it){return s+it.price*it.qty;},0);}
+function cartCount(){return state.cart.reduce(function(s,it){return s+it.qty;},0);}
+function escapeAttr(s){return (s||"").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function escapeHtml(s){
+  return (s||"").toString()
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
+/* ============ TOAST ============ */
+function toast(msg, type){
+  var wrap = document.getElementById("toast-wrap");
+  var el = document.createElement("div");
+  el.className = "toast" + (type ? " "+type : "");
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(function(){
+    el.style.opacity = "0";
+    el.style.transform = "translateY(-8px)";
+    el.style.transition = "all .2s";
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 250);
+  }, 1800);
+}
+
+/* ============ THEME ============ */
+function applyTheme(){
+  document.documentElement.setAttribute("data-theme", state.theme);
+  var icon = document.getElementById("theme-icon");
+  if(state.theme === "dark"){
+    icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/>';
+  }else{
+    icon.innerHTML = '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
+  }
+}
+function toggleTheme(){
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  applyTheme(); persist();
+}
+
+/* ============ LANG ============ */
+function applyLang(){
+  document.documentElement.setAttribute("lang", state.lang);
+  document.querySelectorAll("[data-i18n]").forEach(function(el){
+    var k = el.getAttribute("data-i18n");
+    if(I18N[k]) el.textContent = I18N[k][state.lang];
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(function(el){
+    var k = el.getAttribute("data-i18n-ph");
+    if(I18N[k]) el.setAttribute("placeholder", I18N[k][state.lang]);
+  });
+  renderAll();
+}
+function toggleLang(){
+  state.lang = state.lang === "id" ? "en" : "id";
+  applyLang(); persist();
+}
+
+/* ============ VIEW ============ */
+function setView(v){
+  state.view = v;
+  document.getElementById("view-pos").classList.toggle("hidden", v !== "pos");
+  document.getElementById("view-history").classList.toggle("hidden", v !== "history");
+  document.getElementById("tab-pos").classList.toggle("active", v === "pos");
+  document.getElementById("tab-history").classList.toggle("active", v === "history");
+  if(v === "history") renderHistory();
+}
+
+/* ============ MENU RENDER ============ */
+function renderCatTabs(){
+  var wrap = document.getElementById("cat-tabs");
+  wrap.innerHTML = "";
+  CATS.forEach(function(c){
+    var btn = document.createElement("button");
+    btn.className = "cat-tab" + (state.selectedCat === c.key ? " active" : "");
+    btn.innerHTML = c.emoji + " " + catLabel(c.key);
+    btn.onclick = function(){ state.selectedCat = c.key; renderCatTabs(); renderMenu(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function renderMenu(){
+  var q = (document.getElementById("search").value || "").toLowerCase().trim();
+  var grid = document.getElementById("menu-grid");
+  var filtered = MENU.filter(function(p){
+    if(state.selectedCat !== "all" && p.cat !== state.selectedCat) return false;
+    if(!q) return true;
+    return p.name.toLowerCase().indexOf(q) >= 0 ||
+           p.nameEn.toLowerCase().indexOf(q) >= 0 ||
+           (p.desc||"").toLowerCase().indexOf(q) >= 0;
+  });
+  if(filtered.length === 0){
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted-fg);padding:32px;">🔍<br>' + (state.lang === "id" ? "Tidak ada menu yang cocok." : "No matching menu items.") + '</div>';
+    return;
+  }
+  grid.innerHTML = "";
+  filtered.forEach(function(p){
+    var inCart = state.cart.find(function(it){return it.id === p.id;});
+    var card = document.createElement("button");
+    card.className = "menu-card" + (inCart ? " in-cart" : "");
+    var addIcon = inCart
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg> ' + inCart.qty
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> ' + tt("addItem");
+    card.innerHTML =
+      '<div class="menu-card-head">' +
+        '<div class="menu-emoji">' + p.emoji + '</div>' +
+        '<div class="menu-info">' +
+          '<div class="menu-name">' + (state.lang === "id" ? p.name : p.nameEn) + '</div>' +
+          '<div class="menu-desc">' + (state.lang === "id" ? p.desc : p.descEn) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="menu-foot">' +
+        '<span class="menu-price">' + formatIDR(p.price) + '</span>' +
+        '<span class="menu-add">' + addIcon + '</span>' +
+      '</div>';
+    card.onclick = function(){ addToCart(p); };
+    grid.appendChild(card);
+  });
+}
+
+/* ============ CART ============ */
+function addToCart(p){
+  var ex = state.cart.find(function(it){return it.id === p.id;});
+  if(ex){ ex.qty++; }
+  else{ state.cart.push({id:p.id,name:p.name,nameEn:p.nameEn,price:p.price,emoji:p.emoji,qty:1}); }
+  toast((state.lang === "id" ? p.name : p.nameEn) + " " + (state.lang === "id" ? "ditambahkan" : "added"), "success");
+  renderCart(); renderMenu();
+}
+function decFromCart(id){
+  var it = state.cart.find(function(x){return x.id === id;});
+  if(!it) return;
+  it.qty--;
+  if(it.qty <= 0) state.cart = state.cart.filter(function(x){return x.id !== id;});
+  renderCart(); renderMenu();
+}
+function incFromCart(id){
+  var it = state.cart.find(function(x){return x.id === id;});
+  if(!it) return;
+  it.qty++;
+  renderCart(); renderMenu();
+}
+function removeFromCart(id){
+  state.cart = state.cart.filter(function(x){return x.id !== id;});
+  renderCart(); renderMenu();
+}
+function clearCart(){
+  state.cart = []; state.amountPaid = 0; state.qrisPaid = false;
+  state.tableNo = ""; state.customerName = "";
+  renderCart(); renderMenu();
+}
+
+function svgIcon(name){
+  var icons = {
+    dineIn:'<path d="M3 11h18"/><path d="M3 11a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1"/><path d="M5 11v9"/><path d="M19 11v9"/><path d="M5 20h14"/>',
+    takeaway:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+    cash:'<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+    qris:'<rect width="5" height="5" x="3" y="3" rx="1"/><path d="M3 8h5"/><path d="M8 3v5"/><path d="M3 13v5"/><path d="M8 13v5"/><path d="M3 18h5"/><rect width="5" height="5" x="16" y="3" rx="1"/><path d="M16 8h5"/><path d="M21 3v5"/><path d="M16 13v5"/><path d="M21 13v5"/><path d="M16 18h5"/>',
+    trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    minus:'<path d="M5 12h14"/>',
+    plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+    xCircle:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+    checkCircle:'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+    cartIcon:'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + (icons[name] || "") + '</svg>';
+}
+
+function cartBodyHTML(){
+  if(state.cart.length === 0){
+    return '<div class="cart-empty"><div><div class="icon">🛒</div><p>' + tt("cartEmpty") + '</p></div></div>';
+  }
+  var h = '';
+  h += '<div>';
+  h += '<label class="field-label">' + tt("orderType") + '</label>';
+  h += '<div class="seg-control">';
+  h += '<button class="seg-btn' + (state.orderType==="dine-in"?" active":"") + '" onclick="setOrderType(\'dine-in\')">' + svgIcon("dineIn") + tt("dineIn") + '</button>';
+  h += '<button class="seg-btn' + (state.orderType==="takeaway"?" active":"") + '" onclick="setOrderType(\'takeaway\')">' + svgIcon("takeaway") + tt("takeaway") + '</button>';
+  h += '</div>';
+  if(state.orderType === "dine-in"){
+    h += '<input class="text-input" type="text" inputmode="numeric" placeholder="' + tt("tablePlaceholder") + '" value="' + escapeAttr(state.tableNo) + '" oninput="setTableNo(this.value)" aria-label="' + tt("tableNumber") + '">';
+  }
+  h += '<input class="text-input" type="text" placeholder="' + tt("customerPlaceholder") + '" value="' + escapeAttr(state.customerName) + '" oninput="setCustomerName(this.value)" aria-label="' + tt("customerName") + '">';
+  h += '</div>';
+  h += '<hr class="divider">';
+  h += '<ul>';
+  state.cart.forEach(function(it){
+    h += '<li class="cart-item">';
+    h += '<div class="cart-item-head">';
+    h += '<div><div class="cart-item-name">' + it.emoji + ' ' + (state.lang === "id" ? it.name : it.nameEn) + '</div>';
+    h += '<div class="cart-item-price">' + formatIDR(it.price) + ' ' + tt("perItem") + '</div></div>';
+    h += '<button class="cart-item-x" onclick="removeFromCart(\'' + it.id + '\')" aria-label="Remove">' + svgIcon("xCircle") + '</button>';
+    h += '</div>';
+    h += '<div class="cart-item-foot">';
+    h += '<div class="qty-control">';
+    h += '<button class="qty-btn" onclick="decFromCart(\'' + it.id + '\')" aria-label="Decrease">' + svgIcon("minus") + '</button>';
+    h += '<span class="qty-val">' + it.qty + '</span>';
+    h += '<button class="qty-btn" onclick="incFromCart(\'' + it.id + '\')" aria-label="Increase">' + svgIcon("plus") + '</button>';
+    h += '</div>';
+    h += '<span class="cart-item-total">' + formatIDR(it.price * it.qty) + '</span>';
+    h += '</div>';
+    h += '</li>';
+  });
+  h += '</ul>';
+  return h;
+}
+
+function cartFooterHTML(){
+  if(state.cart.length === 0) return '';
+  var st = subtotal();
+  var h = '';
+  h += '<div>';
+  h += '<label class="field-label">' + tt("paymentMethod") + '</label>';
+  h += '<div class="payment-row">';
+  h += '<button class="pay-btn' + (state.payment==="cash"?" active":"") + '" onclick="setPayment(\'cash\')">' + svgIcon("cash") + tt("cash") + '</button>';
+  h += '<button class="pay-btn' + (state.payment==="qris"?" active":"") + '" onclick="setPayment(\'qris\')">' + svgIcon("qris") + tt("qris") + '</button>';
+  h += '</div>';
+  if(state.payment === "cash"){
+    h += '<div class="amount-row">';
+    h += '<label class="field-label" style="margin:0;">' + tt("amountPaid") + '</label>';
+    h += '<input class="amount-input" type="text" inputmode="numeric" placeholder="' + tt("amountPaidPlaceholder") + '" value="' + (state.amountPaid ? formatIDR(state.amountPaid) : "") + '" oninput="setAmountPaid(this.value)">';
+    h += '</div>';
+    h += '<div class="quick-cash">';
+    h += '<button class="quick-cash-btn" onclick="setAmountPaidRaw(' + st + ')">' + tt("quickCash") + '</button>';
+    [50000,100000,150000,200000].forEach(function(a){
+      h += '<button class="quick-cash-btn" onclick="setAmountPaidRaw(' + a + ')">' + formatIDR(a) + '</button>';
+    });
+    h += '</div>';
+    if(state.amountPaid > 0 && state.amountPaid >= st){
+      h += '<div class="change-box"><span>' + tt("change") + '</span><span class="change-val">' + formatIDR(state.amountPaid - st) + '</span></div>';
+    }
+    if(state.amountPaid > 0 && state.amountPaid < st){
+      h += '<p class="error-text">' + tt("insufficient") + '</p>';
+    }
+  }else{
+    var qrisPayload = "00020101021226670016ID.CO.QRIS.WWW0118936009143DCAFFE02150" + st + "5204599953033605802ID59113D Caffe Ende6005Ende62270523" + state.cart.length + "6304";
+    var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=128x128&margin=4&data=" + encodeURIComponent(qrisPayload);
+    h += '<div class="qris-box">';
+    h += '<div class="qris-qr">';
+    h += '<img src="' + qrUrl + '" alt="QRIS QR Code" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'">';
+    h += '<div class="qris-qr-fallback" style="display:none;">QRIS<br>' + formatIDR(st) + '<br><small>Scan to pay</small></div>';
+    h += '</div>';
+    h += '<p class="qris-instruction">' + tt("qrisInstruction") + '</p>';
+    h += '<button class="qris-confirm' + (state.qrisPaid?" active":"") + '" onclick="toggleQrisPaid()">';
+    h += state.qrisPaid ? svgIcon("checkCircle") : svgIcon("qris");
+    h += tt("qrisPaid");
+    h += '</button>';
+    h += '<p class="qris-wait">' + tt("qrisWaiting") + '</p>';
+    h += '</div>';
+  }
+  h += '<div class="totals">';
+  h += '<div class="row muted"><span>' + tt("subtotal") + '</span><span>' + formatIDR(st) + '</span></div>';
+  h += '<div class="row total"><span>' + tt("total") + '</span><span class="total-val">' + formatIDR(st) + '</span></div>';
+  h += '</div>';
+  var canCheckout = state.cart.length > 0 &&
+    (state.payment === "qris" ? state.qrisPaid : state.amountPaid >= st) &&
+    (state.orderType !== "dine-in" || state.tableNo.trim() !== "");
+  h += '<button class="btn-primary" onclick="handleCheckout()" ' + (canCheckout ? "" : "disabled") + '>';
+  h += svgIcon("checkCircle");
+  h += tt("checkout") + ' · ' + formatIDR(st);
+  h += '</button>';
+  return h;
+}
+
+function renderCart(){
+  var bodyHTML = cartBodyHTML();
+  var footerHTML = cartFooterHTML();
+  var panelHTML = '<div class="cart-header"><span class="cart-title">' + svgIcon("cartIcon") + tt("cartTitle") + '</span>' +
+    (state.cart.length > 0 ? '<button class="btn-link" onclick="clearCart()">' + svgIcon("trash") + tt("clearCart") + '</button>' : '') +
+    '</div>';
+  if(state.cart.length === 0){
+    panelHTML += bodyHTML;
+  }else{
+    panelHTML += '<div class="cart-body">' + bodyHTML + '</div>';
+    panelHTML += '<div class="cart-footer">' + footerHTML + '</div>';
+  }
+  document.getElementById("cart-panel-desktop").innerHTML = panelHTML;
+  document.getElementById("cart-panel-mobile").innerHTML = panelHTML;
+  // Mobile bottom bar
+  var bar = document.getElementById("mobile-cart-bar");
+  if(cartCount() > 0){
+    bar.classList.add("show");
+    document.getElementById("mobile-cart-qty").textContent = cartCount();
+    document.getElementById("mobile-cart-total").textContent = formatIDR(subtotal());
+  }else{
+    bar.classList.remove("show");
+  }
+  // Cart count badge
+  var badge = document.getElementById("cart-count-badge");
+  var num = document.getElementById("cart-count-num");
+  if(cartCount() > 0){
+    badge.classList.add("show");
+    num.textContent = cartCount();
+  }else{
+    badge.classList.remove("show");
+  }
+}
+
+function setOrderType(t){ state.orderType = t; renderCart(); }
+function setTableNo(v){
+  state.tableNo = v;
+  syncCheckoutAvailability();
+}
+function setCustomerName(v){ state.customerName = v; }
+function setPayment(m){ state.payment = m; state.amountPaid = 0; state.qrisPaid = false; renderCart(); }
+function setAmountPaid(v){ state.amountPaid = formatMoneyInput(v); renderCart(); }
+function setAmountPaidRaw(n){ state.amountPaid = n; renderCart(); }
+function toggleQrisPaid(){ state.qrisPaid = !state.qrisPaid; renderCart(); }
+
+function syncCheckoutAvailability(){
+  var canCheckout = state.cart.length > 0 &&
+    (state.payment === "qris" ? state.qrisPaid : state.amountPaid >= subtotal()) &&
+    (state.orderType !== "dine-in" || state.tableNo.trim() !== "");
+  var buttons = document.querySelectorAll(".cart-panel .btn-primary");
+  buttons.forEach(function(button){
+    if(canCheckout) button.removeAttribute("disabled");
+    else button.setAttribute("disabled", "");
+  });
+}
+
+/* ============ DRAWER ============ */
+function openDrawer(){
+  document.getElementById("drawer").classList.add("open");
+  document.getElementById("drawer-overlay").classList.add("open");
+}
+function closeDrawer(){
+  document.getElementById("drawer").classList.remove("open");
+  document.getElementById("drawer-overlay").classList.remove("open");
+}
+
+/* ============ CHECKOUT ============ */
+function handleCheckout(){
+  if(state.cart.length === 0){ toast(tt("emptyCartWarn"), "error"); return; }
+  if(state.orderType === "dine-in" && !state.tableNo.trim()){ toast(tt("needTable"), "error"); return; }
+  if(state.payment === "cash" && state.amountPaid < subtotal()){ toast(tt("insufficient"), "error"); return; }
+  if(state.payment === "qris" && !state.qrisPaid){ toast(state.lang === "id" ? "Konfirmasi pembayaran QRIS dulu." : "Confirm QRIS payment first.", "error"); return; }
+
+  var st = subtotal();
+  var now = new Date();
+  var tx = {
+    id: "TX-" + now.getTime(),
+    trxNo: generateTrxNo(now),
+    items: state.cart.map(function(it){ return {id:it.id,name:it.name,nameEn:it.nameEn,price:it.price,qty:it.qty}; }),
+    subtotal: st, total: st,
+    orderType: state.orderType,
+    tableNo: state.orderType === "dine-in" ? state.tableNo : null,
+    customerName: state.customerName || null,
+    payment: state.payment,
+    amountPaid: state.payment === "cash" ? state.amountPaid : st,
+    change: state.payment === "cash" ? state.amountPaid - st : 0,
+    cashier: state.cashier,
+    createdAt: now.getTime()
+  };
+  state.transactions.unshift(tx);
+  state.transactions = state.transactions.slice(0, 500);
+  state.selectedTrx = tx;
+  persist();
+  clearCart();
+  closeDrawer();
+  renderReceipt(tx);
+  openReceiptModal();
+  toast((state.lang === "id" ? "Transaksi " : "Transaction ") + tx.trxNo + (state.lang === "id" ? " berhasil!" : " success!"), "success");
+}
+
+/* ============ RECEIPT ============ */
+function renderReceipt(tx){
+  var el = document.getElementById("receipt-printable");
+  var h = '';
+  h += '<div class="r-head">';
+  h += '<div class="r-logo">3D</div>';
+  h += '<div class="r-brand">3D CAFFE</div>';
+  h += '<div class="r-sub">Ende Coffe &amp; Resto</div>';
+  h += '<div class="r-sub">Ende, Flores, NTT</div>';
+  h += '<div class="r-sub">0812-7947-5598 · 0812-3941-8017</div>';
+  h += '</div>';
+  h += '<div class="r-row"><span>' + tt("receiptNo") + '</span><span>' + tx.trxNo + '</span></div>';
+  h += '<div class="r-row"><span>' + tt("date") + '</span><span>' + formatDateTime(tx.createdAt) + '</span></div>';
+  h += '<div class="r-row"><span>' + tt("cashier") + '</span><span>' + tx.cashier + '</span></div>';
+  h += '<div class="r-row"><span>' + tt("orderType") + '</span><span>';
+  if(tx.orderType === "dine-in"){
+    h += tt("dineIn") + (tx.tableNo ? ' · ' + tt("tableNumber") + ' ' + escapeHtml(tx.tableNo) : '');
+  }else{ h += tt("takeaway"); }
+  h += '</span></div>';
+  if(tx.customerName){
+    h += '<div class="r-row"><span>' + (state.lang === "id" ? "Pelanggan" : "Customer") + '</span><span>' + escapeHtml(tx.customerName) + '</span></div>';
+  }
+  h += '<div class="r-divider"></div>';
+  h += '<table>';
+  h += '<thead><tr><th>Item</th><th class="qty">Qty</th><th class="price">' + (state.lang === "id" ? "Harga" : "Price") + '</th></tr></thead>';
+  h += '<tbody>';
+  tx.items.forEach(function(it){
+    h += '<tr><td class="name">' + (state.lang === "id" ? it.name : it.nameEn) + '</td><td class="qty">' + it.qty + '</td><td class="price">' + formatIDR(it.price * it.qty) + '</td></tr>';
+  });
+  h += '</tbody>';
+  h += '</table>';
+  h += '<div class="r-divider"></div>';
+  h += '<div class="r-row"><span>' + tt("subtotal") + '</span><span>' + formatIDR(tx.subtotal) + '</span></div>';
+  h += '<div class="r-row r-total"><span>' + tt("total") + '</span><span>' + formatIDR(tx.total) + '</span></div>';
+  h += '<div class="r-divider"></div>';
+  h += '<div class="r-row"><span>' + tt("paymentMethod") + '</span><span>' + (tx.payment === "cash" ? tt("cash") : tt("qris")) + '</span></div>';
+  h += '<div class="r-row"><span>' + tt("paid") + '</span><span>' + formatIDR(tx.amountPaid) + '</span></div>';
+  if(tx.payment === "cash"){
+    h += '<div class="r-row"><span>' + tt("change") + '</span><span>' + formatIDR(tx.change) + '</span></div>';
+  }
+  h += '<div class="r-foot"><div class="ty">' + tt("thankYou") + '</div><div class="pb">' + tt("poweredBy") + '</div></div>';
+  el.innerHTML = h;
+}
+
+function openReceiptModal(){ document.getElementById("receipt-modal").classList.add("open"); }
+function closeReceiptModal(){ document.getElementById("receipt-modal").classList.remove("open"); }
+function printReceipt(){ window.print(); }
+function newOrder(){ closeReceiptModal(); setView("pos"); }
+
+/* ============ HISTORY ============ */
+function toggleFilterToday(){
+  state.filterToday = !state.filterToday;
+  document.getElementById("filter-today-btn").classList.toggle("active", state.filterToday);
+  renderHistory();
+}
+
+function makeSummaryCard(highlight, iconSVG, label, value, sub){
+  var div = document.createElement("div");
+  div.className = "summary-card" + (highlight ? " " + highlight : "");
+  div.innerHTML = '<div class="label">' + iconSVG + ' ' + label + '</div>' +
+    '<div class="value">' + value + '</div>' +
+    '<div class="sub">' + sub + '</div>';
+  return div;
+}
+
+function renderHistory(){
+  var todayKey = ymd();
+  var todayTx = state.transactions.filter(function(tx){return ymd(tx.createdAt) === todayKey;});
+  var todayTotal = todayTx.reduce(function(s,tx){return s+tx.total;},0);
+  var allTotal = state.transactions.reduce(function(s,tx){return s+tx.total;},0);
+  var summaryEl = document.getElementById("summary-grid");
+  summaryEl.innerHTML = '';
+  summaryEl.appendChild(makeSummaryCard("highlight", svgIcon("cash"), tt("todaySales"), formatIDR(todayTotal), todayTx.length + " " + tt("transactionCount")));
+  summaryEl.appendChild(makeSummaryCard("", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>', tt("totalRevenue"), formatIDR(allTotal), state.transactions.length + " " + tt("transactionCount")));
+  summaryEl.appendChild(makeSummaryCard("", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>', tt("transactionCount"), String(state.transactions.length), state.filterToday ? tt("filterToday") : tt("allTransactions")));
+
+  var listEl = document.getElementById("history-list");
+  var filtered = state.filterToday
+    ? state.transactions.filter(function(tx){return ymd(tx.createdAt) === todayKey;})
+    : state.transactions;
+  if(filtered.length === 0){
+    listEl.innerHTML = '<div class="history-empty"><div class="icon">📋</div><p>' + tt("historyEmpty") + '</p><button class="btn-outline" onclick="setView(\'pos\')" style="margin:8px auto 0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>' + tt("backToPos") + '</button></div>';
+    return;
+  }
+  listEl.innerHTML = "";
+  filtered.forEach(function(tx){
+    var itemCount = tx.items.reduce(function(s,it){return s+it.qty;},0);
+    var item = document.createElement("div");
+    item.className = "history-item";
+    var iconClass = tx.payment === "cash" ? "cash" : "qris";
+    var iconSVG = tx.payment === "cash" ? svgIcon("cash") : svgIcon("qris");
+    item.innerHTML =
+      '<div class="history-icon ' + iconClass + '">' + iconSVG + '</div>' +
+      '<div class="history-body">' +
+        '<div class="history-trx">' + tx.trxNo +
+          '<span class="history-badge">' + (tx.orderType === "dine-in" ? tt("dineIn") + (tx.tableNo ? " · " + escapeHtml(tx.tableNo) : "") : tt("takeaway")) + '</span>' +
+        '</div>' +
+        '<div class="history-meta">' +
+          '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + formatDateTime(tx.createdAt) + '</span>' +
+          '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' + itemCount + " " + (itemCount === 1 ? tt("items") : tt("itemsPlural")) + '</span>' +
+          '<span>' + (tx.payment === "cash" ? tt("cash") : tt("qris")) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="text-align:right;"><div class="history-total">' + formatIDR(tx.total) + '</div>' +
+      '<button class="history-view-btn" onclick="viewTrx(\'' + tx.id + '\')">' + tt("viewReceipt") + '</button></div>';
+    listEl.appendChild(item);
+  });
+}
+
+function viewTrx(id){
+  var tx = state.transactions.find(function(x){return x.id === id;});
+  if(!tx) return;
+  state.selectedTrx = tx;
+  renderReceipt(tx);
+  openReceiptModal();
+}
+
+/* ============ INIT ============ */
+function renderAll(){
+  renderCatTabs(); renderMenu(); renderCart();
+  if(state.view === "history") renderHistory();
+}
+
+function init(){
+  loadPersisted();
+  applyTheme();
+  document.documentElement.setAttribute("lang", state.lang);
+  document.querySelectorAll("[data-i18n]").forEach(function(el){
+    var k = el.getAttribute("data-i18n");
+    if(I18N[k]) el.textContent = I18N[k][state.lang];
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(function(el){
+    var k = el.getAttribute("data-i18n-ph");
+    if(I18N[k]) el.setAttribute("placeholder", I18N[k][state.lang]);
+  });
+  renderAll();
+}
+
+document.getElementById("receipt-modal").addEventListener("click", function(e){
+  if(e.target === this) closeReceiptModal();
+});
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape"){
+    if(document.getElementById("receipt-modal").classList.contains("open")) closeReceiptModal();
+    if(document.getElementById("drawer").classList.contains("open")) closeDrawer();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
